@@ -428,6 +428,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     NSApplication.shared.servicesProvider = self
 
     AppDelegate.shared.menuController?.updatePluginMenu()
+    
+#if DEBUG
+_lyricsDebugSanityCheck()
+#endif
   }
 
   /** Show welcome window if `application(_:openFile:)` wasn't called, i.e. launched normally. */

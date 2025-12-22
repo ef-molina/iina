@@ -193,10 +193,17 @@ class PlayerCore: NSObject {
   var mpv: MPVController!
 
   var receivedEndFileWhileLoading: Bool = false
+  
+  // MARK: - Lyrics (experimental)
+  var lyricsEngine: LyricsEngine?
 
   var plugins: [JavascriptPluginInstance] = []
   private var pluginMap: [String: JavascriptPluginInstance] = [:]
   var events = EventController()
+  
+  // MARK: - Lyrics
+  lazy var lyricsController = LyricsController(player: self)
+
 
   lazy var ffmpegController: FFmpegController = {
     let controller = FFmpegController()
@@ -1984,6 +1991,23 @@ class PlayerCore: NSObject {
     log("File loaded")
 
     info.state = .loaded
+    
+    // MARK: - Lyrics (experimental)
+    if let url = info.currentURL {
+        let lrcURL = url.deletingPathExtension().appendingPathExtension("lrc")
+
+        if FileManager.default.fileExists(atPath: lrcURL.path),
+           let contents = try? String(contentsOf: lrcURL) {
+
+            let lines = LRCParser.parse(contents)
+            lyricsController.loadLyrics(lines)
+
+            log("Loaded lyrics: \(lines.count) lines")
+        } else {
+            lyricsController.clear()
+            log("No lyrics found for file")
+        }
+    }
 
     // Must force drawing to cover the case where this player was previously used to play a video
     // and is now playing an audio file without an album cover and without using music mode.
@@ -2537,6 +2561,12 @@ class PlayerCore: NSObject {
         info.videoPosition?.second = mpv.getDouble(MPVProperty.timePos)
       }
       info.constrainVideoPosition()
+      
+      // MARK: - Lyrics Sync (experimental)
+      if let time = info.videoPosition?.second {
+        lyricsController.syncTime(time)
+      }
+      
       info.videoRemaining?.second = Preference.bool(for: .scaleRemainingTime) ?
         mpv.getDouble(MPVProperty.playtimeRemainingFull) :
         mpv.getDouble(MPVProperty.timeRemainingFull)
